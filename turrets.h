@@ -1,34 +1,35 @@
-#define MPU_ADDR 0x68
+// ==== Pin Definitions ====
+#define IN1Y 9
+#define IN2Y 8
+#define nSLEEPY 7
 
-// ==== Direction Enum ====
-enum Direction {
-  STOP,
-  LEFT,
-  RIGHT,
-  UP,
-  DOWN
-};
+#define RELAY1 6
+#define RELAY2 5
+
+// ==== Directions ====
+enum Direction { STOP, LEFT, RIGHT, UP, DOWN };
 
 // ==== Function Declarations ====
 
-// ---- Setup Functions ----
+// Setup
 void turretSetup();
-void setupMotors();
 void setupMPU();
-void setupAll();
 
-// ---- Motor Control ----
-void moveMotor(int in1, int in2, Direction dir);
-void moveYaw(Direction dir);
-void movePitch(Direction dir);
-
-// ---- Sensor Readings ----
+// MPU Functions
 void readMPU();
 double getYaw();
 double getPitch();
 
-// ---- Motion Control ----
-void moveToAngle(double target, double (*getAngle)(), void (*move)(Direction),
-                 Direction dirUp, Direction dirDown);
-void yawMoveTo(double target);
-void pitchMoveTo(double target);
+// Movement Functions
+void moveYaw(Direction dir);
+void movePitch(Direction dir);
+
+// Pitch State Machine
+void startPitchMove(double target);
+void updatePitchControl();
+
+// (Optional) Yaw State Machine – stub for later expansion
+void startYawMove(double target);
+void updateYawControl();
+
+bool isPitchIdle();

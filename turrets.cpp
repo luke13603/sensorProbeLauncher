@@ -1,60 +1,42 @@
-#include <Wire.h>
-#include "Arduino.h"
+#include "arduino.h"
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <Wire.h>
 
-// Yaw motor (motor driver)
+// ====== Pin Definitions ======
 #define IN1Y 9
 #define IN2Y 8
 #define nSLEEPY 7
 
-// Pitch motor (2 relays)
-#define RELAY_P1 6
-#define RELAY_P2 5
+#define relay1 6
+#define relay2 5
 
-// -------------------- Enums --------------------
-enum Direction { STOP, LEFT, RIGHT, UP, DOWN };
-
-//MPU6050 global stuff
-const int MPU_addr = 0x68; // I2C address for MPU6050
+// ====== Global Variables ======
+const int MPU_addr = 0x68;
 int16_t aX, aY, aZ, temp, gyro_X, gyro_Y, gyro_Z;
 double pitchAngle, yawAngle;
 
-//Setup stuff
-void setupMotors() {
-  // Set pin modes
-  int pins[] = {IN1Y, IN2Y, nSLEEPY, RELAY_P1, RELAY_P2};
+enum Direction { STOP, LEFT, RIGHT, UP, DOWN };
+
+// ====== Setup Functions ======
+void turretSetup() {
+  int pins[] = {IN1Y, IN2Y, nSLEEPY, relay1, relay2};
   for (int p : pins) pinMode(p, OUTPUT);
 
-  // Initialize states
-  digitalWrite(nSLEEPY, HIGH);  // Enable yaw driver
-  digitalWrite(RELAY_P1, LOW);
-  digitalWrite(RELAY_P2, LOW);
+  digitalWrite(nSLEEPY, HIGH);
+  digitalWrite(relay1, HIGH);
+  digitalWrite(relay2, HIGH);
 }
 
 void setupMPU() {
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B);
-  Wire.write(0); // Wake MPU6050
+  Wire.write(0);
   Wire.endTransmission(true);
 }
 
-void turretSetup() {
-  setupMotors();
-  setupMPU();
-  Serial.begin(9600);
-  delay(500);
-  Serial.println("Turret initialized.");
-}
-
-void setupAll(){
-  turretSetup();
-  setupMPU();
-  setupMotors();
-}
-
-// ----- Yaw controlled by motor driver -----
+// ====== Motor Control ======
 void moveYaw(Direction dir) {
   switch (dir) {
     case LEFT:
@@ -72,30 +54,27 @@ void moveYaw(Direction dir) {
   }
 }
 
-//Pitch controlled by relays
 void movePitch(Direction dir) {
-  // Always turn off both relays first
-  digitalWrite(RELAY_P1, LOW);
-  digitalWrite(RELAY_P2, LOW);
-  delay(100); // small delay to protect relay contacts
-
   switch (dir) {
     case UP:
-      digitalWrite(RELAY_P1, HIGH);  // Energize relay 1
+      digitalWrite(relay1, LOW);  // activate relay1
+      digitalWrite(relay2, HIGH); // ensure relay2 off
       break;
     case DOWN:
-      digitalWrite(RELAY_P2, HIGH);  // Energize relay 2
+      digitalWrite(relay1, HIGH); // ensure relay1 off
+      digitalWrite(relay2, LOW);  // activate relay2
       break;
-    default:
-      // Both off = STOP
+    case STOP:
+      digitalWrite(relay1, HIGH); // both off
+      digitalWrite(relay2, HIGH);
       break;
   }
 }
 
-//MPU6050 functions
+// ====== MPU Reading ======
 void readMPU() {
   Wire.beginTransmission(MPU_addr);
-  Wire.write(0x3B);  // Start at ACCEL_XOUT_H
+  Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_addr, 14, true);
 
@@ -112,37 +91,9 @@ void readMPU() {
   float az = aZ / 16384.0;
 
   pitchAngle = atan2(ay, sqrt(ax * ax + az * az)) * 180 / PI;
-  yawAngle   = atan2(-ax, az) * 180 / PI;
-
-  Serial.print("Pitch = "); Serial.print(pitchAngle);
-  Serial.print(" | Yaw = "); Serial.print(yawAngle);
-  Serial.print(" | Temp = "); Serial.println(temp / 340.00 + 36.53);
+  yawAngle = atan2(-ax, az) * 180 / PI;
+  Serial.println(pitchAngle);
 }
 
-double getYaw()   { readMPU(); return yawAngle; }
+double getYaw() { readMPU(); return yawAngle; }
 double getPitch() { readMPU(); return pitchAngle; }
-
-// Motion Control by Angle
-void moveToAngle(double target, double (*getAngle)(), void (*move)(Direction),
-                 Direction dirUp, Direction dirDown) {
-  unsigned long startTime = millis();
-  while (millis() - startTime < 5000) {  // 5s timeout safety
-    double angle = getAngle();
-    if ((dirUp == LEFT || dirUp == UP) ? angle < target : angle > target) {
-      move(dirUp);
-    } else {
-      move(STOP);
-      break;
-    }
-    delay(50); // time for motion + sensor update
-  }
-  move(STOP);
-}
-
-void yawMoveTo(double target) {
-  moveToAngle(target, getYaw, moveYaw, LEFT, RIGHT);
-}
-
-void pitchMoveTo(double target) {
-  moveToAngle(target, getPitch, movePitch, UP, DOWN);
-}
