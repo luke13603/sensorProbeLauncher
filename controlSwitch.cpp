@@ -3,15 +3,8 @@
 #include "arduino.h"
 
 //variables that control the end of each state of the FSM
-bool lockingDone = false;
-bool pullingDone = false;
-bool holdingDone = false;
-bool pitchDone = false;
-bool yawDone = false;
-bool firingDone = false;
-bool yawReturnDone = false;
-bool pitchReturnDone = false;
-bool sequenceActive = true;
+bool lockingDone{false}, pullingDone{false}, holdingDone{false}, pitchDone{false}, yawDone{false}, 
+     firingDone{false}, yawReturnDone{false}, pitchReturnDone{false}, sequenceActive{true};
 
 //States of the FSM
 enum ControlSwitch{
@@ -54,7 +47,7 @@ void clutchLoop() {
         movePitch(UP);
         readMPU();
       }
-      movePitch(STOP);
+      movePitch(BRAKE);
       
       lockingDone = true;
       delay(2000);
@@ -64,14 +57,14 @@ void clutchLoop() {
     case PULLING:
       //clutch gear starts to reel in the plunger and pull back the rubber bands
       reelIn();
-      delay(4000);
+      delay(2800);
       pullingDone = true;
       if (pullingDone) controlSwitch = HOLDING;
 
     case HOLDING:
       //the clutch holds the rubber band reel in place
       //TODO: check to make sure the servos don't fire off as soon as the FSM moves on
-      reelStop();
+      reelBrake();
       delay(4000);
       holdingDone = true;
       if (holdingDone) controlSwitch = YAWTURN;
@@ -89,7 +82,7 @@ void clutchLoop() {
         movePitch(DOWN);
         readMPU();
       }
-      movePitch(STOP);
+      movePitch(BRAKE);
       
       delay(3500);
       pitchDone = true;
@@ -101,6 +94,7 @@ void clutchLoop() {
       
     case FIRING:
       //the two servos pull the gear rack away from the reel gear
+      reelCoast();
       clutchRelease();
       delay(2000);
       firingDone = true;
@@ -112,7 +106,6 @@ void clutchLoop() {
       Serial.println("TOGGLE");
       delay(500);
       //returns the yaw gear to original position
-      //yawMoveToRight(0);
       delay(3000);
       yawReturnDone = true;
       if(yawReturnDone) controlSwitch = PITCHRETURN;
@@ -122,7 +115,7 @@ void clutchLoop() {
         movePitch(DOWN);
         readMPU();
       }
-      movePitch(STOP);
+      movePitch(COAST);
       
       delay(3000);
       pitchReturnDone = true;
