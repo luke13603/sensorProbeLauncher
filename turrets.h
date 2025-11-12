@@ -1,13 +1,11 @@
 // ==== Pin Definitions ====
-#define IN1Y 9
-#define IN2Y 8
-#define nSLEEPY 7
-
-#define RELAY1 6
-#define RELAY2 5
+#define IN1Y 7
+#define IN2Y 6
+#define IN1P 9
+#define IN2P 8
 
 // ==== Directions ====
-enum Direction { STOP, LEFT, RIGHT, UP, DOWN };
+enum Direction { BRAKE, COAST, LEFT, RIGHT, UP, DOWN };
 
 // ==== Function Declarations ====
 

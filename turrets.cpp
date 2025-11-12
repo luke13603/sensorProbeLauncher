@@ -4,28 +4,25 @@
 #include <Wire.h>
 
 // ====== Pin Definitions ======
-#define IN1Y 9
-#define IN2Y 8
-#define nSLEEPY 7
+#define IN1Y 7
+#define IN2Y 6
+const int IN1P = 9;  // Connected to DRV8871 IN1
+const int IN2P = 8;  // Connected to DRV8871 IN2
 
-#define relay1 6
-#define relay2 5
+//#define relay1 6
+//#define relay2 5
 
 // ====== Global Variables ======
 const int MPU_addr = 0x68;
 int16_t aX, aY, aZ, temp, gyro_X, gyro_Y, gyro_Z;
 double pitchAngle, yawAngle;
 
-enum Direction { STOP, LEFT, RIGHT, UP, DOWN };
+enum Direction { BRAKE, COAST, LEFT, RIGHT, UP, DOWN };
 
 // ====== Setup Functions ======
 void turretSetup() {
-  int pins[] = {IN1Y, IN2Y, nSLEEPY, relay1, relay2};
+  int pins[] = {IN1Y, IN2Y, IN1P, IN2P};
   for (int p : pins) pinMode(p, OUTPUT);
-
-  digitalWrite(nSLEEPY, HIGH);
-  digitalWrite(relay1, HIGH);
-  digitalWrite(relay2, HIGH);
 }
 
 void setupMPU() {
@@ -57,16 +54,20 @@ void moveYaw(Direction dir) {
 void movePitch(Direction dir) {
   switch (dir) {
     case UP:
-      digitalWrite(relay1, LOW);  // activate relay1
-      digitalWrite(relay2, HIGH); // ensure relay2 off
+      digitalWrite(IN1P, LOW);
+      digitalWrite(IN2P, HIGH);
       break;
     case DOWN:
-      digitalWrite(relay1, HIGH); // ensure relay1 off
-      digitalWrite(relay2, LOW);  // activate relay2
+      digitalWrite(IN1P, HIGH);
+      digitalWrite(IN2P, LOW);
       break;
-    case STOP:
-      digitalWrite(relay1, HIGH); // both off
-      digitalWrite(relay2, HIGH);
+    case BRAKE:
+      digitalWrite(IN1P, HIGH);
+      digitalWrite(IN2P, HIGH);
+      break;
+    case COAST:
+      digitalWrite(IN1P, LOW);
+      digitalWrite(IN2P, LOW);
       break;
   }
 }
