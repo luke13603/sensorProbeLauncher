@@ -1,10 +1,15 @@
 #include "Clutch.h"
 #include "turrets.h"
 #include "arduino.h"
+#include "encoder.h"
 
 //variables that control the end of each state of the FSM
 bool lockingDone{false}, pullingDone{false}, holdingDone{false}, pitchDone{false}, yawDone{false}, 
      firingDone{false}, yawReturnDone{false}, pitchReturnDone{false}, sequenceActive{true};
+
+const unsigned long timeOutPitch = 500;  // 3 seconds safety limit
+
+extern bool motorForward;
 
 //States of the FSM
 enum ControlSwitch{
@@ -19,45 +24,38 @@ enum ControlSwitch{
   DONE
 };
 
-/*HUGGGGE FUCKING ISSUE
- * Motor will not be able to "break" or hold position after the arudino is done calling it to move to pos
- * I COMPLETLY FUCKING FORGOT THAT THE ARDUINO CAN'T RUN ASYNC STUFF
- * FUCK
- * SHIT
- * Fix: move the yaw and pitch turn to the start of the FSM
- * Robot should be able to turn and be done turning before reeling in rubbber bands
- * and then should immedietly go into shooting, thus this wont become a problem.
- * 
- * change the way that the mechansim flips from the state
- */
 //Sets the starting position for the FSM
 ControlSwitch controlSwitch = LOCKING;
 
-//big ass FSM to control the entire movement sequence of the robot
 void clutchLoop() {
   if (!sequenceActive) return;
   switch (controlSwitch) {
     case LOCKING:
-      //robot locks the clutch gear onto the reel gear using the servos and gear rack
-      Serial.println("TOGGLE");
-      delay(500);
-      clutchGrab();
+      //clutchGrab();
       
-      while(getPitch() > 30){
-        movePitch(UP);
-        readMPU();
+      //move upward in 500 ms bursts until pitch <= 40°
+      while (true) {
+        float pitch = readMPUPitch();
+        Serial.println(pitch);
+        if (pitch >= 57) {
+           Serial.println(F("✅ Done, target achieved"));
+           movePitch(BRAKE);
+           break;
+        }
+        else{movePitch(UP);}
+        delay(10);
       }
-      movePitch(BRAKE);
-      
+
       lockingDone = true;
-      delay(2000);
+      delay(1000);
       //calls to the next state
       if (lockingDone) controlSwitch = PULLING;
 
     case PULLING:
       //clutch gear starts to reel in the plunger and pull back the rubber bands
       reelIn();
-      delay(2800);
+      Serial.println("pulling");
+      delay(1500);
       pullingDone = true;
       if (pullingDone) controlSwitch = HOLDING;
 
@@ -65,24 +63,41 @@ void clutchLoop() {
       //the clutch holds the rubber band reel in place
       //TODO: check to make sure the servos don't fire off as soon as the FSM moves on
       reelBrake();
-      delay(4000);
+      delay(1000);
+      Serial.println("holding");
       holdingDone = true;
       if (holdingDone) controlSwitch = YAWTURN;
 
     case YAWTURN:
-      
-      delay(3000);
-      //have 3 seconds for the yaw gear to turn
+      Serial.println("YawTurn");
+      while (true) {
+        encoderUpdate();
+        float yaw = getTurretAngle();
+        Serial.println(yaw);
+        if (yaw >= 45) {
+           Serial.println(F("✅ Done, target achieved"));
+           moveYaw(COAST);
+           break;
+        }
+        else{moveYaw(RIGHT);}
+        delay(10);
+      }
       yawDone = true;
+      resetTurretAngle();
       if (yawDone) controlSwitch = PITCHTURN;
 
     case PITCHTURN:
-      
-      while(getPitch() < 50){
-        movePitch(DOWN);
-        readMPU();
+      while (true) {
+        float pitch = readMPUPitch();
+        Serial.println(pitch);
+        if (pitch <= 15) {
+           Serial.println(F("✅ Done, target achieved"));
+           movePitch(BRAKE);
+           break;
+        }
+        else{movePitch(DOWN);}
+        delay(10);
       }
-      movePitch(BRAKE);
       
       delay(3500);
       pitchDone = true;
@@ -95,8 +110,8 @@ void clutchLoop() {
     case FIRING:
       //the two servos pull the gear rack away from the reel gear
       reelCoast();
-      clutchRelease();
-      delay(2000);
+      //clutchRelease();
+      delay(1000);
       firingDone = true;
       if(firingDone) controlSwitch = YAWRETURN;
       
@@ -105,19 +120,37 @@ void clutchLoop() {
       delay(500);
       Serial.println("TOGGLE");
       delay(500);
-      //returns the yaw gear to original position
-      delay(3000);
+      Serial.println("YawReturn");
+      while (true) {
+        encoderUpdate();
+        float yaw = getTurretAngle();
+        Serial.println(yaw);
+        if (yaw >= 45) {
+           Serial.println(F("✅ Done, target achieved"));
+           moveYaw(COAST);
+           break;
+        }
+        else{moveYaw(LEFT);}
+        delay(10);
+      }
+      resetTurretAngle();
       yawReturnDone = true;
       if(yawReturnDone) controlSwitch = PITCHRETURN;
         
     case PITCHRETURN:
-      while(getPitch() < 80){
-        movePitch(DOWN);
-        readMPU();
+      while (true) {
+        float pitch = readMPUPitch();
+        Serial.println(pitch);
+        if (pitch <= 5) {
+           Serial.println(F("✅ Done, target achieved"));
+           movePitch(COAST);
+           break;
+        }
+        else{movePitch(DOWN);}
+        delay(10);
       }
-      movePitch(COAST);
       
-      delay(3000);
+      delay(5000);
       pitchReturnDone = true;
       
       //end statement that exits the switch once the pitch return state is done

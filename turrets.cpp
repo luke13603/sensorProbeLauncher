@@ -4,20 +4,30 @@
 #include <Wire.h>
 
 // ====== Pin Definitions ======
-#define IN1Y 7
-#define IN2Y 6
-const int IN1P = 9;  // Connected to DRV8871 IN1
-const int IN2P = 8;  // Connected to DRV8871 IN2
+#define IN1Y 8
+#define IN2Y 7
+const int IN1P = 9;  // Controls speed
+const int IN2P = 6;  // Controls direction
 
-//#define relay1 6
-//#define relay2 5
+int16_t accX_offset = -747;
+int16_t accY_offset = -441;
+int16_t accZ_offset = -639;
+
+unsigned long lastMicros = 0;
 
 // ====== Global Variables ======
 const int MPU_addr = 0x68;
 int16_t aX, aY, aZ, temp, gyro_X, gyro_Y, gyro_Z;
+float newPitch, newAngle;
 double pitchAngle, yawAngle;
 
+// --- Complementary filter variables ---
+unsigned long lastTime = 0;
+float filteredPitch = 0;
+unsigned long lastFilterTime = 0;
+
 enum Direction { BRAKE, COAST, LEFT, RIGHT, UP, DOWN };
+//enum motorMove{UP, DOWN, LEFT, RIGHT, BRAKEP, BRAKEY, COASTP, COASTY};
 
 // ====== Setup Functions ======
 void turretSetup() {
@@ -27,26 +37,28 @@ void turretSetup() {
 
 void setupMPU() {
   Wire.begin();
+  Wire.setClock(100000);
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
 }
 
+
 // ====== Motor Control ======
 void moveYaw(Direction dir) {
   switch (dir) {
     case LEFT:
-      analogWrite(IN1Y, 255);
-      digitalWrite(IN2Y, LOW);
+      digitalWrite(IN1Y,LOW);
+      digitalWrite(IN2Y, HIGH);
       break;
     case RIGHT:
-      analogWrite(IN2Y, 255);
-      digitalWrite(IN1Y, LOW);
-      break;
-    default:
-      digitalWrite(IN1Y, LOW);
+      digitalWrite(IN1Y, HIGH);
       digitalWrite(IN2Y, LOW);
+      break;
+    case COAST:
+      digitalWrite(IN2Y, LOW);
+      digitalWrite(IN1Y, LOW);
       break;
   }
 }
@@ -55,11 +67,11 @@ void movePitch(Direction dir) {
   switch (dir) {
     case UP:
       digitalWrite(IN1P, LOW);
-      digitalWrite(IN2P, HIGH);
+      analogWrite(IN2P, 100);
       break;
     case DOWN:
       digitalWrite(IN1P, HIGH);
-      digitalWrite(IN2P, LOW);
+      analogWrite(IN2P, 100);
       break;
     case BRAKE:
       digitalWrite(IN1P, HIGH);
@@ -73,28 +85,85 @@ void movePitch(Direction dir) {
 }
 
 // ====== MPU Reading ======
-void readMPU() {
+float readMPUPitch() {
+
+  // Request data
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr, 14, true);
+  if (Wire.endTransmission(false) != 0) return NAN;
 
-  aX = Wire.read() << 8 | Wire.read();
-  aY = Wire.read() << 8 | Wire.read();
-  aZ = Wire.read() << 8 | Wire.read();
-  temp = Wire.read() << 8 | Wire.read();
-  gyro_X = Wire.read() << 8 | Wire.read();
-  gyro_Y = Wire.read() << 8 | Wire.read();
-  gyro_Z = Wire.read() << 8 | Wire.read();
+  int bytes = Wire.requestFrom(MPU_addr, 14, true);
+  if (bytes != 14) {
+    // BAD READ → skip
+    return NAN;
+  }
 
-  float ax = aX / 16384.0;
-  float ay = aY / 16384.0;
-  float az = aZ / 16384.0;
+  int16_t rawAX = Wire.read()<<8 | Wire.read();
+  int16_t rawAY = Wire.read()<<8 | Wire.read();
+  int16_t rawAZ = Wire.read()<<8 | Wire.read();
 
-  pitchAngle = atan2(ay, sqrt(ax * ax + az * az)) * 180 / PI;
-  yawAngle = atan2(-ax, az) * 180 / PI;
-  Serial.println(pitchAngle);
+  int16_t rawTemp = Wire.read()<<8 | Wire.read();
+
+  int16_t rawGX = Wire.read()<<8 | Wire.read();
+  int16_t rawGY = Wire.read()<<8 | Wire.read();
+  int16_t rawGZ = Wire.read()<<8 | Wire.read();
+
+  // Apply offsets
+  float ax = (rawAX - accX_offset) / 16384.0;
+  float ay = (rawAY - accY_offset) / 16384.0;
+  float az = (rawAZ - accZ_offset) / 16384.0;
+
+  // Convert to pitch
+  float pitch = atan2(ay, sqrt(ax*ax + az*az)) * -180.0 / PI;
+  pitch += 77;   // your calibration
+
+  Serial.println(pitch);
+  return pitch;
 }
 
-double getYaw() { readMPU(); return yawAngle; }
-double getPitch() { readMPU(); return pitchAngle; }
+/*void moveTo(motorMove dir, int speed, double angle){
+  switch(dir){
+    case LEFT:
+      
+    case RIGHT:
+
+    case UP:
+      while (true) {
+        float pitch = getStablePitch();
+        if (pitch <= angle) {
+           Serial.println(F("✅ Done, target achieved"));
+           movePitch(BRAKE);
+           break;
+        }
+        else{
+          digitalWrite(IN1P, LOW);
+          analogWrite(IN2P, speed);
+        }
+      }
+    case DOWN:
+      while (true) {
+        float pitch = getStablePitch();
+        if (pitch >= angle) {
+           Serial.println(F("✅ Done, target achieved"));
+           movePitch(BRAKE);
+           break;
+        }
+        else{
+          digitalWrite(IN1P, HIGH);
+          analogWrite(IN2P, speed);
+        }
+      }
+    case BRAKEP:
+      digitalWrite(IN1P, HIGH);
+      digitalWrite(IN2P, HIGH);
+    case BRAKEY:
+      digitalWrite(IN1Y, HIGH);
+      digitalWrite(IN2Y, HIGH);
+    case COASTP:
+      digitalWrite(IN1P, LOW);
+      digitalWrite(IN2P, LOW);
+    case COASTY:
+      digitalWrite(IN2Y, LOW);
+      digitalWrite(IN1Y, LOW);
+  }
+}*/

@@ -1,51 +1,27 @@
 #include <Servo.h>
 #include "arduino.h"
 
-const int servoOnePin = 13;
-const int servoTwoPin = 12;
-const int IN1 = 11;  // Connected to DRV8871 IN1
-const int IN2 = 10;  // Connected to DRV8871 IN2
+//---- Global Variables----
+const int servo1_Pin=13, servo2_Pin=12;
+const int IN1=11, IN2=10;
 const int clutchIn = 180;
 const int clutchOut = 0;
 
-Servo servoOne;
-Servo servoTwo;
+Servo s1, s2;
 
+//----Clutch Setup----
 void clutchSetup(){
-  servoOne.attach(servoOnePin);
-  servoTwo.attach(servoTwoPin);
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  servoOne.write(0);
-  servoTwo.write(180);
+  s1.attach(servo1_Pin); s2.attach(servo2_Pin);
+  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
+  s1.write(0); s2.write(180);
 }
 
-//drive motor actuates and reels in
-void reelIn(){
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-}
+//----Reel Motor Methods----
+void reelIn(){digitalWrite(IN1, 1); digitalWrite(IN2, 0);}
+void reelBrake(){digitalWrite(IN1, 1); digitalWrite(IN2, 1);}
+void reelCoast(){digitalWrite(IN1, 0); digitalWrite(IN2, 0);}
 
-//drive motor stops moving
-void reelBrake(){
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, HIGH);
-}
-
-void reelCoast(){
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-}
-
-//both servos push in too activate the clutch
-//positions are reversed because they are on opposite sides
-void clutchGrab(){
-  servoOne.write(65);
-  servoTwo.write(115);
-}
-
-//same principle as the above method
-void clutchRelease(){
-  servoOne.write(clutchOut);
-  servoTwo.write(clutchIn);
-}
+//----Servo Motor Methods----
+void clutchGrab(){s1.write(65); s2.write(115);}
+void clutchRelease(){s1.write(0); s2.write(180);}
+//servos reversed because they are on opposing sides

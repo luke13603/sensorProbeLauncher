@@ -13,21 +13,17 @@ enum Direction { BRAKE, COAST, LEFT, RIGHT, UP, DOWN };
 void turretSetup();
 void setupMPU();
 
-// MPU Functions
-void readMPU();
-double getYaw();
-double getPitch();
-
 // Movement Functions
 void moveYaw(Direction dir);
 void movePitch(Direction dir);
 
-// Pitch State Machine
-void startPitchMove(double target);
-void updatePitchControl();
+void movePitchForCheck(Direction dir, unsigned long runTime, float targetPitch);
+float getStablePitch(int samples = 20, int delayMs = 10);
+float readMPUPitch();
+float readMPUYaw();
 
-// (Optional) Yaw State Machine – stub for later expansion
-void startYawMove(double target);
-void updateYawControl();
+float getYaw();
 
-bool isPitchIdle();
+void readGyroTest();
+
+void dumpRegisters();

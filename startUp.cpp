@@ -14,6 +14,5 @@ void buttonCheck(){
   buttonState = digitalRead(buttonPin);
   if (buttonState == LOW){
     startLight = true;
-    Serial.println("WATCHDOGOFF");
   }
 }
