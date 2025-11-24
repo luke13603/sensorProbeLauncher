@@ -1,151 +1,152 @@
 #include "arduino.h"
-#include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
+#include "encoder.h"
+#include "turrets.h"
+#include <ezButton.h>
+
 
 // ====== Pin Definitions ======
-#define IN1Y 8
-#define IN2Y 7
+const int IN1Y = 8;
+const int IN2Y = 7;
 const int IN1P = 9;  // Controls speed
 const int IN2P = 6;  // Controls direction
 
-int16_t accX_offset = -747;
-int16_t accY_offset = -441;
-int16_t accZ_offset = -639;
 
-unsigned long lastMicros = 0;
+#define CLK_PIN_PITCH 5  
+#define DT_PIN_PITCH_PITCH  4   
 
-// ====== Global Variables ======
-const int MPU_addr = 0x68;
-int16_t aX, aY, aZ, temp, gyro_X, gyro_Y, gyro_Z;
-float newPitch, newAngle;
-double pitchAngle, yawAngle;
+#define DIRECTION_CW 1
+#define DIRECTION_CCW -1
 
-// --- Complementary filter variables ---
-unsigned long lastTime = 0;
-float filteredPitch = 0;
-unsigned long lastFilterTime = 0;
+bool motorForward2 = true;
+int Multiplier2 = (motorForward2 ? 1 : -1);
 
-enum Direction { BRAKE, COAST, LEFT, RIGHT, UP, DOWN };
-//enum motorMove{UP, DOWN, LEFT, RIGHT, BRAKEP, BRAKEY, COASTP, COASTY};
+static const float gearRatioPITCH = 55.0 / 24.0;
+static const float countsPerRevPITCH = 30.0;
+static const float turretcountsPerRevPITCH = countsPerRevPITCH * gearRatioPITCH;
+static const float degreesPerCount = 360.0 / turretcountsPerRevPITCH;
+
+static int counter = 0;
+static int direction = DIRECTION_CW;
+static int prev_CLK_state = 0;
 
 // ====== Setup Functions ======
 void turretSetup() {
   int pins[] = {IN1Y, IN2Y, IN1P, IN2P};
   for (int p : pins) pinMode(p, OUTPUT);
+  digitalWrite(IN2Y, LOW);
+  digitalWrite(IN1Y, LOW);
+  digitalWrite(IN1P, LOW);
+  digitalWrite(IN2P, LOW);
 }
 
-void setupMPU() {
-  Wire.begin();
-  Wire.setClock(100000);
-  Wire.beginTransmission(MPU_addr);
-  Wire.write(0x6B);
-  Wire.write(0);
-  Wire.endTransmission(true);
+void encoderInit2() {
+    pinMode(CLK_PIN_PITCH, INPUT);
+    pinMode(DT_PIN_PITCH_PITCH, INPUT);
+    prev_CLK_state = digitalRead(CLK_PIN_PITCH);
+    resetPitchAngle();
 }
 
+void encoderUpdate2() {
+    int CLK_state = digitalRead(CLK_PIN_PITCH);
 
-// ====== Motor Control ======
-void moveYaw(Direction dir) {
-  switch (dir) {
-    case LEFT:
-      digitalWrite(IN1Y,LOW);
-      digitalWrite(IN2Y, HIGH);
-      break;
-    case RIGHT:
-      digitalWrite(IN1Y, HIGH);
-      digitalWrite(IN2Y, LOW);
-      break;
-    case COAST:
-      digitalWrite(IN2Y, LOW);
-      digitalWrite(IN1Y, LOW);
-      break;
-  }
+    // capture rising edge
+    if (CLK_state != prev_CLK_state && CLK_state == HIGH) {
+
+        if (digitalRead(DT_PIN_PITCH_PITCH) == HIGH) {
+            counter--;
+            direction = DIRECTION_CCW;
+        } else {
+            counter++;
+            direction = DIRECTION_CW;
+        }
+    }
+
+    prev_CLK_state = CLK_state;
 }
 
-void movePitch(Direction dir) {
-  switch (dir) {
-    case UP:
-      digitalWrite(IN1P, LOW);
-      analogWrite(IN2P, 100);
-      break;
-    case DOWN:
-      digitalWrite(IN1P, HIGH);
-      analogWrite(IN2P, 100);
-      break;
-    case BRAKE:
-      digitalWrite(IN1P, HIGH);
-      digitalWrite(IN2P, HIGH);
-      break;
-    case COAST:
-      digitalWrite(IN1P, LOW);
-      digitalWrite(IN2P, LOW);
-      break;
-  }
+float getPitchAngle() {
+    float angle = counter * degreesPerCount;
+    while (angle >= 360) angle -= 360;
+    while (angle < 0) angle += 360;
+    Serial.println(angle);
+    return angle;
 }
 
-// ====== MPU Reading ======
-float readMPUPitch() {
-
-  // Request data
-  Wire.beginTransmission(MPU_addr);
-  Wire.write(0x3B);
-  if (Wire.endTransmission(false) != 0) return NAN;
-
-  int bytes = Wire.requestFrom(MPU_addr, 14, true);
-  if (bytes != 14) {
-    // BAD READ → skip
-    return NAN;
-  }
-
-  int16_t rawAX = Wire.read()<<8 | Wire.read();
-  int16_t rawAY = Wire.read()<<8 | Wire.read();
-  int16_t rawAZ = Wire.read()<<8 | Wire.read();
-
-  int16_t rawTemp = Wire.read()<<8 | Wire.read();
-
-  int16_t rawGX = Wire.read()<<8 | Wire.read();
-  int16_t rawGY = Wire.read()<<8 | Wire.read();
-  int16_t rawGZ = Wire.read()<<8 | Wire.read();
-
-  // Apply offsets
-  float ax = (rawAX - accX_offset) / 16384.0;
-  float ay = (rawAY - accY_offset) / 16384.0;
-  float az = (rawAZ - accZ_offset) / 16384.0;
-
-  // Convert to pitch
-  float pitch = atan2(ay, sqrt(ax*ax + az*az)) * -180.0 / PI;
-  pitch += 77;   // your calibration
-
-  Serial.println(pitch);
-  return pitch;
+long getPitchCount() {
+    return counter;
 }
 
-/*void moveTo(motorMove dir, int speed, double angle){
+void resetPitchAngle() {
+    counter = 0;
+}
+
+void moveTo(motorMove dir, double angle, int speed){
   switch(dir){
-    case LEFT:
-      
     case RIGHT:
-
-    case UP:
+      //right
       while (true) {
-        float pitch = getStablePitch();
-        if (pitch <= angle) {
+        encoderUpdate();
+        float yaw = getTurretAngle();
+        Serial.println(yaw);
+        if (yaw >= angle) {
            Serial.println(F("✅ Done, target achieved"));
-           movePitch(BRAKE);
+           digitalWrite(IN1Y, LOW);
+           digitalWrite(IN2Y, LOW);
            break;
         }
         else{
+          digitalWrite(IN1Y,LOW);
+          digitalWrite(IN2Y, HIGH);
+        }
+      }
+      break;
+    case LEFT:
+      //left
+      while (true) {
+        encoderUpdate();
+        float yaw = getTurretAngle();
+        Serial.println(yaw);
+        if (yaw >= angle) {
+           Serial.println(F("✅ Done, target achieved"));
+           digitalWrite(IN1Y, LOW);
+           digitalWrite(IN2Y, LOW);
+           break;
+        }
+        else{
+          digitalWrite(IN1Y, HIGH);
+          digitalWrite(IN2Y, LOW);
+        }
+      }
+      break;
+    case UP:
+      while (true) {
+        encoderUpdate2();
+        float pitch = getPitchAngle();
+        Serial.println(pitch);
+        if (pitch >= angle) {
+           Serial.println(F("✅ Done, target achieved"));
+           digitalWrite(IN1P, HIGH);
+           digitalWrite(IN2P, HIGH);
+           break;
+        }
+        else{
+          Serial.println("UP");
           digitalWrite(IN1P, LOW);
           analogWrite(IN2P, speed);
         }
       }
+      break;
     case DOWN:
       while (true) {
-        float pitch = getStablePitch();
-        if (pitch >= angle) {
+        encoderUpdate2();
+        float pitch = getPitchAngle();
+        Serial.println(pitch);
+        if (pitch <= angle) {
            Serial.println(F("✅ Done, target achieved"));
-           movePitch(BRAKE);
+           digitalWrite(IN1P, HIGH);
+           digitalWrite(IN2P, HIGH);
            break;
         }
         else{
@@ -153,17 +154,32 @@ float readMPUPitch() {
           analogWrite(IN2P, speed);
         }
       }
+      break;
     case BRAKEP:
       digitalWrite(IN1P, HIGH);
       digitalWrite(IN2P, HIGH);
+      break;
     case BRAKEY:
-      digitalWrite(IN1Y, HIGH);
-      digitalWrite(IN2Y, HIGH);
+      digitalWrite(IN1Y, LOW);
+      digitalWrite(IN2Y, LOW);
+      break;
     case COASTP:
       digitalWrite(IN1P, LOW);
       digitalWrite(IN2P, LOW);
+      break;
     case COASTY:
-      digitalWrite(IN2Y, LOW);
-      digitalWrite(IN1Y, LOW);
+      digitalWrite(IN2Y, HIGH);
+      digitalWrite(IN1Y, HIGH);
+      break;
+    default:
+      digitalWrite(IN2Y, HIGH);
+      digitalWrite(IN1Y, HIGH);
+      digitalWrite(IN1P, LOW);
+      digitalWrite(IN2P, LOW);
   }
-}*/
+}
+
+void test(){
+  digitalWrite(IN1Y, HIGH);
+  digitalWrite(IN2Y, LOW);
+}
