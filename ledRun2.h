@@ -1,5 +1,4 @@
 void ledReset();
-void ledOff();
 void ledOn();
 void loopLed();
 void setupWatchdog();

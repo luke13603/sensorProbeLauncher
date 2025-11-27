@@ -1,6 +1,6 @@
 #include "turrets.h"
 #include "arduino.h"
-#include "startUp.h"
+#include "clutch.h"
 #include "controlSwitch.h"
 
 //variables that control the end of each state of the FSM
@@ -8,7 +8,6 @@ bool lockingDone{false}, pullingDone{false}, holdingDone{false}, pitchDone{false
      firingDone{false}, yawReturnDone{false}, pitchReturnDone{false}, sequenceActive{true};
 
 extern bool motorForward;
-
 ControlSwitch controlSwitch = LOCKING;
 
 void clutchLoop() {
@@ -23,7 +22,7 @@ void clutchLoop() {
 
     case PULLING:
       reelIn();
-      delay(1000);
+      delay(800);
       pullingDone = true;
       if (pullingDone) controlSwitch = HOLDING;
 

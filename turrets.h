@@ -1,4 +1,3 @@
-// ==== Directions ====
 enum motorMove{UP, DOWN, LEFT, RIGHT, BRAKEP, BRAKEY, COASTP, COASTY};
 
 // Setup

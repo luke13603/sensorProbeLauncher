@@ -15,8 +15,7 @@ void loop() {
   while(endseq){
     byte buttonState = digitalRead(BUTTON_PIN);
     if(buttonState == LOW){
-      Serial.print("done");
-      endseq = false;
+      Serial.print("done");endseq = false;
       break;
     }
     ledReset();
@@ -28,8 +27,7 @@ void loop() {
   if(state){loopLed(); watchdogOff();}
   else if(firing){ledReset(); watchdogOn();}
   if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
+    String cmd = Serial.readStringUntil('\n'); cmd.trim();
     if (cmd == "TOGGLE") {state = !state;}
     else if(cmd == "BigFire"){firing = !firing;}
     else if(cmd == "DONE"){endseq = true;}

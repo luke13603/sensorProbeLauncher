@@ -1,5 +1,4 @@
 void sSetup();
-
 void reelIn();
 void reelBrake();
 void reelCoast();

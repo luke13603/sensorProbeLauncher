@@ -1,10 +1,8 @@
 #include "arduino.h"
 #include <Servo.h>
 
-const int servo1_Pin=13, servo2_Pin=12;
-const int IN1=11, IN2=10;
-const int clutchIn = 180;
-const int clutchOut = 0;
+//servo1 (black wire) is front, servo2 is back
+const int servo1_Pin=13, servo2_Pin=12, IN1=11, IN2=10;
 bool startLight = false;
 
 Servo servoONE, servoTWO;
@@ -20,7 +18,6 @@ void reelIn(){digitalWrite(IN1, 1); digitalWrite(IN2, 0);}
 void reelBrake(){digitalWrite(IN1, 1); digitalWrite(IN2, 1);}
 void reelCoast(){digitalWrite(IN1, 0); digitalWrite(IN2, 0);}
 
-//Servo Motor Methods
+//Servo Motor Methods, servos reversed (opposing sides)
 void clutchGrab(){servoONE.write(45); servoTWO.write(135);}
 void clutchRelease(){servoONE.write(0); servoTWO.write(180);}
-//servos reversed because they are on opposing sides
