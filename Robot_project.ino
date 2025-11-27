@@ -1,24 +1,21 @@
 #include "arduino.h"
-#include "Clutch.h"
 #include "startUp.h"
 #include "controlSwitch.h"
 #include "turrets.h"
-#include "encoder.h"
 
-extern bool startLight;
-extern bool sequenceActive;
+extern bool startLight, sequenceActive;
 
 void setup(void) {
   Serial.begin(9600); 
-  clutchSetup();
   startSetup();
   turretSetup();
-  setupMPU();
   encoderInit();
 }
 
 void loop(void) { 
   buttonCheck();
+  startLight = true;
+  delay(50);
   if(startLight == true){
     Serial.println("TOGGLE");
     delay(500);

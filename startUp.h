@@ -1,4 +1,8 @@
 void startSetup();
 void buttonCheck();
-void ledOn();
-void ledOff();
+
+void reelIn();
+void reelBrake();
+void reelCoast();
+void clutchGrab();
+void clutchRelease();

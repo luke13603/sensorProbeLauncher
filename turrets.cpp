@@ -1,37 +1,45 @@
 #include "arduino.h"
+#include "turrets.h"
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include "encoder.h"
-#include "turrets.h"
 #include <ezButton.h>
 
-
-// ====== Pin Definitions ======
+//pin defs
 const int IN1Y = 8;
 const int IN2Y = 7;
 const int IN1P = 9;  // Controls speed
 const int IN2P = 6;  // Controls direction
 
-
 #define CLK_PIN_PITCH 5  
 #define DT_PIN_PITCH_PITCH  4   
+#define DT_PIN_YAW 3
+#define CLK_PIN_YAW 2
 
 #define DIRECTION_CW 1
 #define DIRECTION_CCW -1
 
-bool motorForward2 = true;
-int Multiplier2 = (motorForward2 ? 1 : -1);
+bool motorForwardPITCH{true}, motorForwardYAW{true};
+int MultiplierPITCH = (motorForwardPITCH ? 1 : -1);
+int MultiplierYAW = (motorForwardYAW ? 1 : -1);
 
+//const def
 static const float gearRatioPITCH = 55.0 / 24.0;
-static const float countsPerRevPITCH = 30.0;
-static const float turretcountsPerRevPITCH = countsPerRevPITCH * gearRatioPITCH;
-static const float degreesPerCount = 360.0 / turretcountsPerRevPITCH;
+static const float countsPerRev = 30.0;
+static const float turretcountsPerRev = countsPerRev * gearRatioPITCH;
+static const float degreesPerCountPITCH = 360.0 / turretcountsPerRev;
 
-static int counter = 0;
+static const float gearRatioYAW = 55.0 / 12.0;
+static const float turretcountsPerRevYAW = countsPerRev * gearRatioYAW;
+static const float degreesPerCountYAW = 360.0 / turretcountsPerRevYAW;
+
+static int counterPITCH = 0;
 static int direction = DIRECTION_CW;
-static int prev_CLK_state = 0;
+static int prev_CLK_state_PITCH = 0;
 
-// ====== Setup Functions ======
+static int counterYAW = 0;
+static int prev_CLK_stateYAW = 0;
+
+//setup for turret
 void turretSetup() {
   int pins[] = {IN1Y, IN2Y, IN1P, IN2P};
   for (int p : pins) pinMode(p, OUTPUT);
@@ -41,54 +49,66 @@ void turretSetup() {
   digitalWrite(IN2P, LOW);
 }
 
-void encoderInit2() {
+void encoderInit() {
     pinMode(CLK_PIN_PITCH, INPUT);
     pinMode(DT_PIN_PITCH_PITCH, INPUT);
-    prev_CLK_state = digitalRead(CLK_PIN_PITCH);
+    prev_CLK_state_PITCH = digitalRead(CLK_PIN_PITCH);
     resetPitchAngle();
+
+    pinMode(CLK_PIN_YAW, INPUT);
+    pinMode(DT_PIN_YAW, INPUT);
+    prev_CLK_stateYAW = digitalRead(CLK_PIN_YAW);
 }
 
-void encoderUpdate2() {
-    int CLK_state = digitalRead(CLK_PIN_PITCH);
-
+void encoderUpdateYAW() {
+    int CLK_state_YAW = digitalRead(CLK_PIN_YAW);
     // capture rising edge
-    if (CLK_state != prev_CLK_state && CLK_state == HIGH) {
-
-        if (digitalRead(DT_PIN_PITCH_PITCH) == HIGH) {
-            counter--;
-            direction = DIRECTION_CCW;
-        } else {
-            counter++;
-            direction = DIRECTION_CW;
-        }
+    if (CLK_state_YAW != prev_CLK_stateYAW && CLK_state_YAW == HIGH) {
+        if (digitalRead(DT_PIN_YAW) == HIGH) {counterYAW--; direction = DIRECTION_CCW;}
+        else {counterYAW++; direction = DIRECTION_CW;}
     }
+    prev_CLK_stateYAW = CLK_state_YAW;
+}
 
-    prev_CLK_state = CLK_state;
+void encoderUpdatePITCH() {
+    int CLK_statePITCH = digitalRead(CLK_PIN_PITCH);
+    if (CLK_statePITCH != prev_CLK_state_PITCH && CLK_statePITCH == HIGH) {
+        if (digitalRead(DT_PIN_PITCH_PITCH) == HIGH) {counterPITCH--;direction = DIRECTION_CCW;}
+        else {counterPITCH++;direction = DIRECTION_CW;}
+    }
+    prev_CLK_state_PITCH = CLK_statePITCH;
 }
 
 float getPitchAngle() {
-    float angle = counter * degreesPerCount;
+    float angle = counterPITCH * degreesPerCountPITCH;
     while (angle >= 360) angle -= 360;
     while (angle < 0) angle += 360;
     Serial.println(angle);
     return angle;
 }
 
-long getPitchCount() {
-    return counter;
+float getYAWAngle() {
+    float angle = counterYAW * degreesPerCountYAW;
+    // wrap 0–360
+    while (angle >= 360) angle -= 360;
+    while (angle < 0) angle += 360;
+    Serial.println(angle);
+    return angle;
 }
 
-void resetPitchAngle() {
-    counter = 0;
-}
+long getPitchCount() {return counterPITCH;}
+void resetPitchAngle() {counterPITCH = 0;}
+
+long getYAWCount() {return counterYAW;}
+void resetYAWAngle() {counterYAW = 0;}
 
 void moveTo(motorMove dir, double angle, int speed){
   switch(dir){
     case RIGHT:
       //right
       while (true) {
-        encoderUpdate();
-        float yaw = getTurretAngle();
+        encoderUpdateYAW();
+        float yaw = getYAWAngle();
         Serial.println(yaw);
         if (yaw >= angle) {
            Serial.println(F("✅ Done, target achieved"));
@@ -105,8 +125,8 @@ void moveTo(motorMove dir, double angle, int speed){
     case LEFT:
       //left
       while (true) {
-        encoderUpdate();
-        float yaw = getTurretAngle();
+        encoderUpdateYAW();
+        float yaw = getYAWAngle();
         Serial.println(yaw);
         if (yaw >= angle) {
            Serial.println(F("✅ Done, target achieved"));
@@ -122,7 +142,7 @@ void moveTo(motorMove dir, double angle, int speed){
       break;
     case UP:
       while (true) {
-        encoderUpdate2();
+        encoderUpdatePITCH();
         float pitch = getPitchAngle();
         Serial.println(pitch);
         if (pitch >= angle) {
@@ -140,7 +160,7 @@ void moveTo(motorMove dir, double angle, int speed){
       break;
     case DOWN:
       while (true) {
-        encoderUpdate2();
+        encoderUpdatePITCH();
         float pitch = getPitchAngle();
         Serial.println(pitch);
         if (pitch <= angle) {
@@ -172,14 +192,9 @@ void moveTo(motorMove dir, double angle, int speed){
       digitalWrite(IN1Y, HIGH);
       break;
     default:
-      digitalWrite(IN2Y, HIGH);
-      digitalWrite(IN1Y, HIGH);
+      digitalWrite(IN2Y, LOW);
+      digitalWrite(IN1Y, LOW);
       digitalWrite(IN1P, LOW);
       digitalWrite(IN2P, LOW);
   }
-}
-
-void test(){
-  digitalWrite(IN1Y, HIGH);
-  digitalWrite(IN2Y, LOW);
 }
