@@ -1,10 +1,7 @@
-#include "arduino.h"
-#include <Servo.h>
-
+#include "headers.h"
 //servo1 (black wire) is front, servo2 is back
 const int servo1_Pin=13, servo2_Pin=12, IN1=11, IN2=10;
 bool startLight = false;
-
 Servo servoONE, servoTWO;
 
 void sSetup(){
@@ -14,7 +11,7 @@ void sSetup(){
 }
 
 //Reel Motor Methods
-void reelIn(){digitalWrite(IN1, 1); digitalWrite(IN2, 0);}
+void reelIn(){analogWrite(IN1, 150); digitalWrite(IN2, LOW);}
 void reelBrake(){digitalWrite(IN1, 1); digitalWrite(IN2, 1);}
 void reelCoast(){digitalWrite(IN1, 0); digitalWrite(IN2, 0);}
 
