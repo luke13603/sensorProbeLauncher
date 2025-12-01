@@ -16,7 +16,7 @@ Anything marked with "encoder2" is usually dealing with the pitch turret.
 
 
 
-=-VERSION 1.5.0--
+--VERSION 1.5.0--
 
 Both pitch and yaw encoders have been merged into one program (turrets.cpp and turrets.h).
   -Code has been simplified using a rising edge detector for direction.
