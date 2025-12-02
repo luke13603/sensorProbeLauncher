@@ -1,11 +1,13 @@
 #include "arduino.h"
 #include "ledRun2.h"
+#include "radar.h"
 #define BUTTON_PIN 7
 
 bool state {false}, firing{false}, endseq{true};
+//extern bool scanningRIGHT, scanningLEFT;
 
 void setup() {
-  setupWatchdog();
+  setupWatchdog(); setupRadar();
   Serial.begin(9600);  // Receive data from Arduino A
   Serial.println("Ready to receive...");
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -19,10 +21,8 @@ void loop() {
       break;
     }
     ledReset();
-    watchdogOn();
-    delay(750);
-    watchdogOff();
-    delay(250);
+    watchdogOn(); delay(750);
+    watchdogOff(); delay(250);
   }
   if(state){loopLed(); watchdogOff();}
   else if(firing){ledReset(); watchdogOn();}
@@ -31,5 +31,9 @@ void loop() {
     if (cmd == "TOGGLE") {state = !state;}
     else if(cmd == "BigFire"){firing = !firing;}
     else if(cmd == "DONE"){endseq = true;}
+    /*else if(cmd == "RIGHturn"){scanningRIGHT = true;}
+    else if(cmd == "LEFTturn"){scanningLEFT = true;}
+    else if(cmd == "LEFTturnDONE"){scanningRIGHT = false;}
+    else if(cmd == "RIGHTturnDONE"){scanningLEFT = false;}*/
   }
 }

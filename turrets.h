@@ -8,7 +8,12 @@ void encoderInit();
 float getPitchAngle();
 long getPitchCount();
 void resetPitchAngle();
-float getYAWangle();
 long getYAWCount();
 void resetYAWAngle();
 void moveTo(motorMove dir, double angle, int speed);
+
+void moveUp();
+void moveDown();
+void moveLeft();
+void moveRight();
+void stopAll();

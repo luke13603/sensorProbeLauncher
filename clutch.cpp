@@ -1,13 +1,11 @@
 #include "headers.h"
 //servo1 (black wire) is front, servo2 is back
-const int servo1_Pin=13, servo2_Pin=12, IN1=11, IN2=10;
-bool startLight = false;
+constexpr uint8_t servo1_Pin=13, servo2_Pin=12, IN1=11, IN2=10;
 Servo servoONE, servoTWO;
 
 void sSetup(){
-  servoONE.attach(servo1_Pin); servoTWO.attach(servo2_Pin);
-  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
-  servoONE.write(0); servoTWO.write(180);
+  servoONE.attach(servo1_Pin); pinMode(IN1, OUTPUT); servoONE.write(0);
+  servoTWO.attach(servo2_Pin); pinMode(IN2, OUTPUT); servoTWO.write(180);
 }
 
 //Reel Motor Methods
