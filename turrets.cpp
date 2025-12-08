@@ -5,7 +5,7 @@ constexpr uint8_t CLK_PITCH = 5, DT_PITCH = 4, DT_YAW = 3, CLK_YAW = 2, DIRECTIO
 bool motorForwardPITCH{true}, motorForwardYAW{true};
 int MultiplierPITCH = (motorForwardPITCH ? 1 : -1), MultiplierYAW = (motorForwardYAW ? 1 : -1);
 
-//max is 90 deg, min is -15
+//max is 90-r deg, min is -15
 //const defs
 static const float gearRatioPITCH = 55.0 / 24.0, gearRatioYAW = 55.0 / 12.0, countsPerRev = 30.0;
 static const float turretcountsPerRev = countsPerRev * gearRatioPITCH;
@@ -51,19 +51,19 @@ void moveTo(motorMove dir, double angle, int speed) {
     switch (dir) {
       case RIGHT:
         encoderUpdateYAW();
-        if (getYAWAngle() >= angle) {done = true; Serial.println("RIGHTturnDONE");}
-        else {digitalWrite(IN1Y,LOW); digitalWrite(IN2Y, HIGH);Serial.println("RIGHTturn");}
+        if (getYAWAngle() >= angle) {done = true;}
+        else {digitalWrite(IN1Y,LOW); digitalWrite(IN2Y, HIGH);}
         break;
 
       case LEFT:
         encoderUpdateYAW();
-        if (getYAWAngle() >= angle){ done = true; Serial.println("LEFTturnDONE");}
-        else {digitalWrite(IN1Y, HIGH); digitalWrite(IN2Y, LOW); Serial.println("LEFTturn");}
+        if (getYAWAngle() >= angle){ done = true;}
+        else {digitalWrite(IN1Y, HIGH); digitalWrite(IN2Y, LOW);}
         break;
 
       case UP:
         encoderUpdatePITCH();
-        if (getPitchAngle() >= angle) done = true;
+        if (getPitchAngle() >= angle) {done = true; Serial.println("fuck");}
         else { digitalWrite(IN1P, LOW); analogWrite(IN2P, speed); }
         break;
 

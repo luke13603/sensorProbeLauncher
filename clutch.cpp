@@ -9,7 +9,7 @@ void sSetup(){
 }
 
 //Reel Motor Methods
-void reelIn(){analogWrite(IN1, 150); digitalWrite(IN2, LOW);}
+void reelIn(){analogWrite(IN1, 255); digitalWrite(IN2, LOW);}
 void reelBrake(){digitalWrite(IN1, 1); digitalWrite(IN2, 1);}
 void reelCoast(){digitalWrite(IN1, 0); digitalWrite(IN2, 0);}
 
